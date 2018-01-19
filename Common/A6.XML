@@ -1,0 +1,92 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>A6</name>
+    </assembly>
+    <members>
+        <member name="M:A6.A6.IO_ScanEx(System.UInt16,System.UInt16,System.UInt16,System.UInt16,System.UInt16,A6.A6.MyCallback,System.UInt16,System.UInt16)">
+            <summary>
+            執行掃描
+            </summary>
+            <param name="m_BitPerPixel">通常是3</param>
+            <param name="m_DPI"></param>
+            <param name="m_Height"></param>
+            <param name="m_Width"></param>
+            <param name="m_LinesPerBlock"></param>
+            <param name="pCallback"></param>
+            <param name="m_ScanMode">通常是3</param>
+            <param name="m_MinLine">通常是2</param>
+            <returns>掃描成功的圖片高度(pixel)</returns>
+        </member>
+        <member name="F:A6.A6Result.DllNotLoad">
+            <summary>
+            DLL無法載入，原因可能是缺module.ini、掃描器沒接、驅動沒有裝...
+            </summary>
+        </member>
+        <member name="F:A6.A6Result.Success_NoReturn">
+            <summary>
+            指令成功，沒有回傳值
+            </summary>
+        </member>
+        <member name="F:A6.A6Result.Success_False">
+            <summary>
+            指令成功，回傳false
+            </summary>
+        </member>
+        <member name="F:A6.A6Result.Success_True">
+            <summary>
+            指令成功，回傳true
+            </summary>
+        </member>
+        <member name="F:A6.A6Result.Fail">
+            <summary>
+            指令失敗
+            </summary>
+        </member>
+        <member name="F:A6.A6Result.NeedCalibrate">
+            <summary>
+            掃描前檢查，發現需要校正
+            </summary>
+        </member>
+        <member name="T:A6.A6Manager">
+            <summary>
+            這個專案需要 Plsk_A6.dll 和 module.ini 兩個檔案
+            </summary>
+        </member>
+        <member name="M:A6.A6Manager.Init">
+            <summary>
+            測試用，實際上是get pid vid，回傳Success_NoReturn，失敗回傳DllNotLoad
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:A6.A6Manager.IsCalibrationNeeded">
+            <summary>
+            需要校正，回傳true/false，失敗回傳DllNotLoad
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:A6.A6Manager.CalibrateScanner">
+            <summary>
+            校正，回傳校正結果true/false，失敗回傳DllNotLoad
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:A6.A6Manager.IsPaperOn">
+            <summary>
+            有沒有紙，回傳true/false，失敗回傳DllNotLoad
+            </summary>
+            <returns></returns>
+        </member>
+        <member name="M:A6.A6Manager.Abort">
+            <summary>
+            強制停止掃描，下一次掃描的圖片會壞掉
+            </summary>
+        </member>
+        <member name="M:A6.A6Manager.Scan">
+            <summary>
+            執行掃描，回傳true/false，失敗回傳DllNotLoad。需要校正的話會直接傳回NeedCalibrate。
+            </summary>
+            <returns></returns>
+        </member>
+    </members>
+</doc>

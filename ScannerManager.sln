@@ -1,0 +1,34 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 14
+VisualStudioVersion = 14.0.25420.1
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ScannerManager", "ScannerManager\ScannerManager.csproj", "{84D1E439-B035-4ABC-A072-D9A5BA2FA989}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Test app", "Test app\Test app.csproj", "{144E3302-4561-4157-8223-7A8B6FC07FD9}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Utility", "Utility\Utility.csproj", "{3966C783-5F83-454C-AB52-FE0ED445A9DE}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{84D1E439-B035-4ABC-A072-D9A5BA2FA989}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{84D1E439-B035-4ABC-A072-D9A5BA2FA989}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{84D1E439-B035-4ABC-A072-D9A5BA2FA989}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{84D1E439-B035-4ABC-A072-D9A5BA2FA989}.Release|Any CPU.Build.0 = Release|Any CPU
+		{144E3302-4561-4157-8223-7A8B6FC07FD9}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{144E3302-4561-4157-8223-7A8B6FC07FD9}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{144E3302-4561-4157-8223-7A8B6FC07FD9}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{144E3302-4561-4157-8223-7A8B6FC07FD9}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3966C783-5F83-454C-AB52-FE0ED445A9DE}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3966C783-5F83-454C-AB52-FE0ED445A9DE}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3966C783-5F83-454C-AB52-FE0ED445A9DE}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3966C783-5F83-454C-AB52-FE0ED445A9DE}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+EndGlobal
