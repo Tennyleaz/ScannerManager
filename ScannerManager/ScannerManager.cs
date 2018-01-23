@@ -794,7 +794,7 @@ namespace ScannerManager
                 {
                     // 新插入的狀況，如果沒有currentScanner，直接更新！
                     // 檢查與currentScanner和scannerName之間的priority，看需不需要向App更新這個事件
-                    ValidScannerType newType = StringToScannerType(scannerName);
+                    ValidScannerType newType = StringToScannerType(scannerUSBName);
                     Scanner newScanner = availableScanners.FirstOrDefault(s => s.ScannerType == newType);
                     if (currentScanner == null || currentScanner.ScannerType == ValidScannerType.NotSupported || currentScanner.Priority < newScanner.Priority)
                     {
@@ -803,7 +803,7 @@ namespace ScannerManager
                         if (newScanner.IsProductSupported(app.ProductName))
                         {
                             // 回報SCAN_STATUS_MACHINE_ON
-                            MachineEventArgs arg = new MachineEventArgs(app.ProductName, scannerName, true);
+                            MachineEventArgs arg = new MachineEventArgs(app.ProductName, true);
                             MachineEvent?.Invoke(this, arg);
                         }
                         else  // 紀錄不支援的掃描器
@@ -818,14 +818,14 @@ namespace ScannerManager
                 else
                 {
                     // 拔出裝置的狀況，回報SCAN_STATUS_MACHINE_OFF
-                    MachineEventArgs arg = new MachineEventArgs(app.ProductName, scannerName, false);
+                    MachineEventArgs arg = new MachineEventArgs(app.ProductName, false);
                     MachineEvent?.Invoke(this, arg);
                     // 如果剩下的掃描器有支援app，再更新
                     Scanner scn = GetCurrentScanner(app.ProductName);
                     if (scn != null)
                     {
                         currentScanner = scn;
-                        MachineEventArgs arg2 = new MachineEventArgs(app.ProductName, scannerName, true);
+                        MachineEventArgs arg2 = new MachineEventArgs(app.ProductName, true);
                         MachineEvent?.Invoke(this, arg2);
                     }
                 }

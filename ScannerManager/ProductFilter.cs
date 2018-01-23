@@ -18,6 +18,7 @@ namespace ScannerManager
         private List<int> currentAppPriority;
         private Dictionary<string, int> appIndexDict;
         private Dictionary<string, int> scannerIndexDict;
+        private int appCount, scannerCount;
 
         class App : IEquatable<App>
         {
@@ -122,12 +123,12 @@ namespace ScannerManager
             string jsonPath = @"C:\Program Files (x86)\Penpower\iScan2\Bin\AppRows.json";
             string jsonString = File.ReadAllText(jsonPath);
             JsonMatrix jsonMatrixObject = JsonConvert.DeserializeObject<JsonMatrix>(jsonString);
-            int scannerRow = jsonMatrixObject.ScannerRow.Count(); // scanner的數量
-            int appCoulumn = jsonMatrixObject.AppColumn.Count();  // app的數量
+            scannerCount = jsonMatrixObject.ScannerRow.Count(); // scanner的數量
+            appCount = jsonMatrixObject.AppColumn.Count();  // app的數量
 
             // 為每個app name建立字典，英文越前面index越小
             appIndexDict = new Dictionary<string, int>();
-            for (int i=0; i<appCoulumn; i++)
+            for (int i=0; i< appCount; i++)
             {
                 appIndexDict.Add(jsonMatrixObject.AppColumn[i], i);
             }
@@ -141,8 +142,8 @@ namespace ScannerManager
             foreach (ScannerJsonObject scnobj in scannerJsonObjects)
             {
                 // 填滿一個scanner row
-                int[] iarray = new int[appCoulumn];
-                for(int i=0; i<appCoulumn; i++)
+                int[] iarray = new int[appCount];
+                for(int i=0; i< appCount; i++)
                 {
                     if (scnobj.Support.Contains(jsonMatrixObject.AppColumn[i]))
                         iarray[i] = 1;
@@ -158,11 +159,11 @@ namespace ScannerManager
             
             // 宣告一個矩陣
             MatrixBuilder<int> builder = Matrix<int>.Build;
-            baseMatrix = builder.DenseOfRowMajor(scannerRow, appCoulumn, oneRow);
+            baseMatrix = builder.DenseOfRowMajor(scannerCount, appCount, oneRow);
             // 複製一份到currentMatrix
             currentMatrix = builder.DenseOfMatrix(baseMatrix);
             // 基本的app priority
-            currentAppPriority = new List<int>(scannerRow);
+            currentAppPriority = new List<int>(scannerCount);
         }
 
         private HashSet<string> InsertScanner(string scannerType)
@@ -182,7 +183,11 @@ namespace ScannerManager
             targetrRow.Multiply(scannerPriority);
             currentMatrix.SetRow(scannerRowIndex, targetrRow);
 
-            // 每個app的結果，跟currentAppPriority比較
+            // 每個app column的結果，跟currentAppPriority比較
+            for (int i=0; i<baseMatrix.ColumnCount; i++)
+            {
+
+            }
 
             // 如果變大，就加入resultAppNames，並更新跟currentAppPriority比較
 
