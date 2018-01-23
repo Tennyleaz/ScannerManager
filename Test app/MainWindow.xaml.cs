@@ -130,13 +130,15 @@ namespace Test_app
         {
             if (e.IsConnected)
             {
-                appManager.SendMessageToApp(e.TargetAppName, (int)SCAN_MSG.SCAN_MSG_TYPE_STATUS, (int)SCAN_STATUS.SCAN_STATUS_MACHINE_ON);
+                appManager.SendMessageToApps(e.TargetAppNames, (int)SCAN_MSG.SCAN_MSG_TYPE_STATUS, (int)SCAN_STATUS.SCAN_STATUS_MACHINE_ON);
             }
             else
             {
-                appManager.SendMessageToApp(e.TargetAppName, (int)SCAN_MSG.SCAN_MSG_TYPE_STATUS, (int)SCAN_STATUS.SCAN_STATUS_MACHINE_OFF);
+                //appManager.SendMessageToApp(e.TargetAppName, (int)SCAN_MSG.SCAN_MSG_TYPE_STATUS, (int)SCAN_STATUS.SCAN_STATUS_MACHINE_OFF);
+                //appManager.SendMessageToAllApp((int)SCAN_MSG.SCAN_MSG_TYPE_STATUS, (int)SCAN_STATUS.SCAN_STATUS_MACHINE_OFF);
+                appManager.SendMessageToApps(e.TargetAppNames, (int)SCAN_MSG.SCAN_MSG_TYPE_STATUS, (int)SCAN_STATUS.SCAN_STATUS_MACHINE_OFF);
             }
-            WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "send scanner insert/unplug event to " + e.TargetAppName + ": IsConnected=" + e.IsConnected);
+            WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "send scanner insert/unplug event, IsConnected=" + e.IsConnected);
         }
 
         private void ScannerManager_PaperOnEvent(object sender, PaperOnEventArgs e)
@@ -290,7 +292,7 @@ namespace Test_app
             {
                 //HideScanningBaseWindow();
                 appManager.RemoveClientApp(ProductName);
-                connectionNameDict.Remove(ProductName);                
+                connectionNameDict.Remove(ProductName);              
             }
             catch (Exception ex)
             {
@@ -301,7 +303,7 @@ namespace Test_app
             {
                 scannerManager.DeActivate();
                 Console.WriteLine("scannerManager deActivate.");
-                WriteLog(LOG_LEVEL.LL_SUB_FUNC, "ScannerManager DeActivate, no app.");
+                WriteLog(LOG_LEVEL.LL_SUB_FUNC, "ScannerManager DeActivate, no app is connected.");
             }
         }
 
@@ -314,6 +316,7 @@ namespace Test_app
         private void OnClientMessage(NamedPipeConnection<ToIScanMessage, ToAppMessage> connection, ToIScanMessage message)
         {
             Console.WriteLine(message.Command.ToString());
+            //WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "Revieved command: " + message.Command.ToString());
 
             switch (message.Command)
             {
@@ -372,7 +375,8 @@ namespace Test_app
                     {
                         ToAppMessage appMsg = new ToAppMessage();
                         appMsg.Command = PipeCommands.GetScannerProp;
-                        Scanner scanner = scannerManager.GetCurrentScanner();
+                        Scanner scanner = scannerManager.GetCurrentScanner(message.ProductName);
+                        //scannerManager.UpdateCurrentScanner(message.ProductName);
                         appMsg.OptionalFilePath = scanner?.FriendlyName;  // 注意current scanner可能是null
                         appMsg.Result = scannerManager.ToAppScannerResult(scanner);
                         PushMessageToApp(message.ProductName, appMsg);
@@ -381,24 +385,26 @@ namespace Test_app
                     }
                 case PipeCommands.Calibration:
                     {
-                        ResultWrapper wrapper = new ResultWrapper();
-                        // 停止timer，做完再啟動
-                        scannerManager.DeActivate();
+                        ResultWrapper wrapper = new ResultWrapper();                        
                         // 檢查忙碌中
                         if (!scannerManager.IsBusy)
                         {
+                            // 停止timer，做完再啟動
+                            scannerManager.DeActivate();
                             // 檢查有沒有紙
-                            wrapper = scannerManager.IsPaperOn();
+                            wrapper = scannerManager.IsPaperOn(message.ProductName);
                             if (wrapper.Result == ScannerResult.Success && wrapper.BooleanStaus == true)
                             {
                                 // 校正，不論有沒有需要
-                                wrapper = scannerManager.Calibrate();
+                                wrapper = scannerManager.Calibrate(message.ProductName);
                             }
+                            scannerManager.Activate();  // 啟動timer
                         }
                         else
                         {
                             // 忙碌中的結果
                             wrapper.Result = ScannerResult.ManagerBusy;
+                            WriteLog(LOG_LEVEL.LL_SUB_FUNC, "Calibration: scanner manager is busy.");
                         }
                         // 回傳
                         /*ToAppMessage appMsg = new ToAppMessage();
@@ -432,8 +438,7 @@ namespace Test_app
                                 break;
                         }*/
                         // 重啟timer
-                        PrepareAndSendToClientMessage(message.Command, wrapper, message.ProductName);
-                        scannerManager.Activate();  // 啟動timer
+                        PrepareAndSendToClientMessage(message.Command, wrapper, message.ProductName);                        
                         break;
                     }
                 case PipeCommands.IsCalibrationNeed:
@@ -444,8 +449,10 @@ namespace Test_app
                         appMsg.OptionalStatus = wrapper.BooleanStaus;
                         appMsg.Result = wrapper.Result;
                         PushMessageToApp(message.ProductName, appMsg);*/
-                        ResultWrapper wrapper = scannerManager.IsCalibrationNeeded();
+                        scannerManager.DeActivate();
+                        ResultWrapper wrapper = scannerManager.IsCalibrationNeeded(message.ProductName);
                         PrepareAndSendToClientMessage(message.Command, wrapper, message.ProductName);
+                        scannerManager.Activate();
                         break;
                     }
                 case PipeCommands.IsMachineConnectedbyProduct:
@@ -465,22 +472,34 @@ namespace Test_app
                         appMsg.OptionalStatus = wrapper.BooleanStaus;
                         appMsg.Result = wrapper.Result;
                         PushMessageToApp(message.ProductName, appMsg);*/
-                        ResultWrapper wrapper = scannerManager.IsPaperOn();
+                        scannerManager.DeActivate();
+                        ResultWrapper wrapper = scannerManager.IsPaperOn(message.ProductName);
                         PrepareAndSendToClientMessage(message.Command, wrapper, message.ProductName);
+                        scannerManager.Activate();
                         break;
                     }
                 // 以下的指令都沒有回傳
                 case PipeCommands.ScanCard:
                     {
-                        // 停止timer，在掃描的completed event會再啟動timer
-                        scannerManager.DeActivate();
-                        // 決定logo的顯示                        
-                        toShowLogo = message.OptionalStatus;
-                        // 將狀態視窗亮紅燈，等到ScanningComplete事件才會轉綠燈
-                        ShowScanningBaseWindow();
-                        scanningBaseWindow?.SetBusy(true);
-                        // 掃描一次
-                        scannerManager.ScanOnce(message.OptionalStatus);
+                        // 檢查忙碌中
+                        if (!scannerManager.IsBusy)
+                        {
+                            // 停止timer，在掃描的completed event會再啟動timer
+                            scannerManager.DeActivate();
+                            // 決定logo的顯示
+                            toShowLogo = message.OptionalStatus;
+                            // 將狀態視窗亮紅燈，等到ScanningComplete事件才會轉綠燈
+                            ShowScanningBaseWindow();
+                            scanningBaseWindow?.SetBusy(true);
+                            // 掃描一次
+                            scannerManager.ScanOnce(message.ProductName, message.OptionalStatus);
+                        }
+                        else
+                        {
+                            // 忙碌中的結果
+                            appManager.SendMessageToApp(message.ProductName, (int)SCAN_MSG.SCAN_MSG_TYPE_SCAN_RTN_VALUE, (int)XSCAN_RTN_VALUE.SCAN_RTN_BUSY);
+                            WriteLog(LOG_LEVEL.LL_SUB_FUNC, "ScanCard: scanner manager is busy.");
+                        }
                         break;
                     }
                 case PipeCommands.SetCaller:

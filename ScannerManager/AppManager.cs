@@ -57,8 +57,16 @@ namespace ScannerManager
 
         public bool RemoveClientApp(string targetAppName)
         {
-            clientApps.RemoveWhere(app => app.ProductName == targetAppName);
-            WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "RemoveClientApp: " + targetAppName);
+            if (!string.IsNullOrEmpty(targetAppName))
+            {
+                clientApps.RemoveWhere(app => app.ProductName == targetAppName);
+                WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "RemoveClientApp: " + targetAppName);
+            }
+            else
+            {
+                WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "RemoveClientApp: no target app name!");
+                return false;
+            }
             return true;
         }
 
@@ -92,6 +100,30 @@ namespace ScannerManager
             }
             WriteLog(LOG_LEVEL.LL_SUB_FUNC, "SendMessageToApp error: cannot find foreground app");
             return false;
+        }
+
+        public void SendMessageToApps(HashSet<string> targetAppNames, int wParam, int lParam)
+        {
+            if (targetAppNames == null)
+                return;
+            foreach (string appName in targetAppNames)
+            {
+                ClientApp targetApp = clientApps.FirstOrDefault(app => app.ProductName == appName);
+                if (targetApp != null)
+                {
+                    WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "PostMessage to app handle=" + (int)targetApp.WindowHandle + ", wParam=" + wParam + ", lParam=" + lParam);
+                    Win32Message.PostMessage(targetApp.WindowHandle, MessageIdentifier, wParam, lParam);
+                }
+            }            
+        }
+
+        public void SendMessageToAllApps(int wParam, int lParam)
+        {
+            foreach(var targetApp in clientApps)
+            {
+                Win32Message.PostMessage(targetApp.WindowHandle, MessageIdentifier, wParam, lParam);
+            }
+            WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "PostMessage to all app, wParam=" + wParam + ", lParam=" + lParam);
         }
 
         public int GetCount()

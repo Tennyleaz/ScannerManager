@@ -35,8 +35,16 @@
     <Reference Include="A6">
       <HintPath>..\Common\A6.dll</HintPath>
     </Reference>
+    <Reference Include="MathNet.Numerics, Version=3.20.2.0, Culture=neutral, processorArchitecture=MSIL">
+      <HintPath>..\packages\MathNet.Numerics.3.20.2\lib\net40\MathNet.Numerics.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="NamedPipeWrapper">
       <HintPath>..\Common\NamedPipeWrapper.dll</HintPath>
+    </Reference>
+    <Reference Include="Newtonsoft.Json, Version=10.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
+      <HintPath>..\packages\Newtonsoft.Json.10.0.3\lib\net40\Newtonsoft.Json.dll</HintPath>
+      <Private>True</Private>
     </Reference>
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
@@ -70,7 +78,9 @@
     <Compile Include="DrawPreview.xaml.cs">
       <DependentUpon>DrawPreview.xaml</DependentUpon>
     </Compile>
+    <Compile Include="ProductFilter.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Scanner.cs" />
     <Compile Include="ScannerManager.cs" />
     <Compile Include="ScannerPreview.xaml.cs">
       <DependentUpon>ScannerPreview.xaml</DependentUpon>
@@ -105,6 +115,9 @@
       <Project>{3966c783-5f83-454c-ab52-fe0ed445a9de}</Project>
       <Name>Utility</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

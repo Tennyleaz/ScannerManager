@@ -29,7 +29,7 @@ namespace ScannerManager
         private const string A6_NAME = "A6 Scanner";          // 裝置管理員顯示的名稱
         private const string A8_NAME = "A8 ColorScanner PP";  // 裝置管理員顯示的名稱
         private const int PULLING_TIMER_INTERVAL_MS = 1000;   // timer tick的間隔(毫秒)
-        private HashSet<Scanner> availableScanners;
+        private SortedSet<Scanner> availableScanners;
         private Scanner currentScanner;  // 小心，可能會是null
         private Timer m_pullingTimer;
         private A6Manager m_A6manager = null;
@@ -38,6 +38,7 @@ namespace ScannerManager
         private ScannerPreview scannerPreviewWindow;
         private DrawPreview drawWindow;
         private BitmapImage tempImage;
+        private ProductFilter productFilter;
         private bool isInited = false;
         private string targetAppName;  // 紀錄本次掃描的目標handle，掃完之後傳過去用的        
         private object scanLoopLock = new object();  // lock住 掃描/校正/有沒有紙 的函數區域
@@ -77,6 +78,7 @@ namespace ScannerManager
             // 更新可用的scanner列表
             availableScanners = CheckAvailableScanners();
             UpdateCurrentScanner();
+            productFilter = new ProductFilter();            
 
             // 掃描的動作定義
             scanningWorker = new BackgroundWorker();
@@ -123,11 +125,18 @@ namespace ScannerManager
         }
 
         /// <summary>
-        /// 可能是null!!
+        /// 會檢查符合的產品。可能是null!
+        /// 不會直接更新currentScanner，要指派。
         /// </summary>
-        public Scanner GetCurrentScanner()
+        public Scanner GetCurrentScanner(string productName)
         {
-            return currentScanner;
+            // 根據掃描器的順序檢查
+            foreach (Scanner scanner in availableScanners)
+            {
+                if (scanner.IsProductSupported(productName))
+                    return scanner;
+            }
+            return null;
         }
 
         /// <summary>
@@ -140,6 +149,9 @@ namespace ScannerManager
                 return false;
 
             // todo: 判斷productName到底對應誰
+            Scanner scn = GetCurrentScanner(productName);
+            if (scn == null || scn.ScannerType == ValidScannerType.NotSupported)
+                return false;
             return true;
         }
 
@@ -161,13 +173,19 @@ namespace ScannerManager
             scanningWorker?.CancelAsync();
         }
 
-        public ResultWrapper IsCalibrationNeeded()
+        /// <summary>
+        /// 會先依照productName更新currentScanner
+        /// </summary>
+        /// <param name="productName"></param>
+        /// <returns></returns>
+        public ResultWrapper IsCalibrationNeeded(string productName)
         {
             lock (scanLoopLock)
             {
                 IsBusy = true;
                 ResultWrapper defaultWrapper = new ResultWrapper();
-                defaultWrapper.Result = ScannerResult.UnknownError;
+                defaultWrapper.Result = ScannerResult.NoSuchScanner;
+                currentScanner = GetCurrentScanner(productName);
                 switch (currentScanner?.ScannerType)
                 {
                     case ValidScannerType.A6:
@@ -183,10 +201,16 @@ namespace ScannerManager
             }
         }
 
-        public ResultWrapper IsPaperOn()
+        /// <summary>
+        /// 會先依照productName更新currentScanner，再檢查有沒有紙。
+        /// </summary>
+        /// <param name="productName"></param>
+        /// <returns></returns>
+        public ResultWrapper IsPaperOn(string productName)
         {
             ResultWrapper defaultWrapper = new ResultWrapper();
-            defaultWrapper.Result = ScannerResult.UnknownError;
+            defaultWrapper.Result = ScannerResult.NoSuchScanner;
+            currentScanner = GetCurrentScanner(productName);
             switch (currentScanner?.ScannerType)
             {
                 case ValidScannerType.A6:
@@ -201,15 +225,17 @@ namespace ScannerManager
         }
 
         /// <summary>
+        /// 會先依照productName更新currentScanner。
         /// 校正，會block直到完成或是錯誤，不會檢查有沒有紙，需要手動重啟timer
         /// </summary>
-        public ResultWrapper Calibrate()
+        public ResultWrapper Calibrate(string productName)
         {
             lock (scanLoopLock)
             {
                 IsBusy = true;
                 ResultWrapper defaultWrapper = new ResultWrapper();
-                defaultWrapper.Result = ScannerResult.UnknownError;
+                defaultWrapper.Result = ScannerResult.NoSuchScanner;
+                currentScanner = GetCurrentScanner(productName);
                 switch (currentScanner?.ScannerType)
                 {
                     case ValidScannerType.A6:
@@ -272,7 +298,7 @@ namespace ScannerManager
                 }
 
                 // 確定有掃描器且有app後，檢查有沒有紙
-                ResultWrapper rw = IsPaperOn();
+                ResultWrapper rw = IsPaperOn(targetAppName);
                 if (rw.BooleanStaus == true)
                 {
                     // 有紙，通知target app，僅通知一次直到下次進紙
@@ -295,8 +321,6 @@ namespace ScannerManager
                 }
                 
                 m_pullingTimer.Start();
-                // 判斷是要問哪個掃描器
-                //scanningWorker.RunWorkerAsync(currentScanner);
             }
 
             // 等到掃描完成，重新啟動timer，
@@ -425,7 +449,7 @@ namespace ScannerManager
                 bool showIScanProgress = (bool)arguments[0];
                 ValidScannerType scanner = (ValidScannerType)arguments[1]; //e.Argument;
                 WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "showIScanProgress is " + showIScanProgress);
-                ScannerResult scnResult = ScannerResult.UnknownError;
+                ScannerResult scnResult = ScannerResult.NoSuchScanner;
                 try
                 {
                     switch (scanner)
@@ -494,13 +518,24 @@ namespace ScannerManager
 
         /// <summary>
         /// 掃描一次，通常是app呼叫，IScan不會自己做。這個函數不會block，僅啟動scanningWorker就返回。
+        /// 會先依照productName更新currentScanner。
         /// </summary>
         /// <param name="drawOnWindow">false代表要在指定的Rect上面掃描</param>
         /// <returns></returns>
-        public bool ScanOnce(bool showIScanProgress)
+        public bool ScanOnce(string productName, bool showIScanProgress)
         {
-            object[] arguments = new object[] { showIScanProgress, currentScanner.ScannerType };
-            scanningWorker.RunWorkerAsync(arguments);
+            currentScanner = GetCurrentScanner(productName);
+            if (currentScanner != null)
+            {
+                object[] arguments = new object[] { showIScanProgress, currentScanner.ScannerType };
+                scanningWorker.RunWorkerAsync(arguments);
+            }
+            else
+            {
+                // 沒有正確的scanner，則會讓background worker馬上結束
+                object[] arguments = new object[] { showIScanProgress, ValidScannerType.NotSupported };
+                scanningWorker.RunWorkerAsync(arguments);
+            }
 
             /*// 判斷是要問哪個掃描器
             switch (currentScanner)
@@ -589,27 +624,33 @@ namespace ScannerManager
         }
 
         /// <summary>
-        /// 檢查目前插入的掃描器。在初始化的時候會被呼叫。回傳一個hashset，要由available scanners接住。
+        /// 檢查目前插入的掃描器。在初始化的時候會被呼叫。回傳一個SortedSet，要由available scanners接住。
         /// </summary>        
-        private HashSet<Scanner> CheckAvailableScanners()
+        private SortedSet<Scanner> CheckAvailableScanners()
         {
-            HashSet<Scanner> scanners = new HashSet<Scanner>();
+            SortedSet<Scanner> scanners = new SortedSet<Scanner>();
 
             ManagementObjectSearcher searcher = new ManagementObjectSearcher("Select * from Win32_PnPEntity");
             ManagementObjectCollection coll = searcher.Get();
 
             foreach (ManagementObject info in coll)
             {
-                // Check for device name
+                // Check for device name/pid/vid
                 string deviceName = Convert.ToString(info["Caption"]);
                 string status = Convert.ToString(info["Status"]);
+                string deviceID = Convert.ToString(info["DeviceID"]);
                 uint configManagerErrorCode = Convert.ToUInt32(info["ConfigManagerErrorCode"]);
                 if (A6_NAME.Equals(deviceName) || A8_NAME.Equals(deviceName))
                 {
-                    Scanner scanner = new Scanner(deviceName, StringToScannerType(deviceName), configManagerErrorCode);
-                    scanners.Add(scanner);
-                    WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "CheckAvailableScanners() find scanner: " + deviceName);
-                    WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "status=" + status + ", configManagerErrorCode="+ configManagerErrorCode);
+                    ValidScannerType type = StringToScannerType(deviceName);
+                    ScannerJsonObject jsonObject = ScannerJsonObject.LoadFromFile(type, deviceID);
+                    if (jsonObject != null)
+                    {
+                        Scanner scanner = new Scanner(type, jsonObject, configManagerErrorCode);
+                        scanners.Add(scanner);
+                        WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "CheckAvailableScanners() find scanner: " + deviceName + ", ID=" + deviceID);
+                        WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "status=" + status + ", configManagerErrorCode=" + configManagerErrorCode);
+                    }
                 }
             }            
 
@@ -618,19 +659,17 @@ namespace ScannerManager
 
         /// <summary>
         /// 從 availableScanners 判斷目前要選誰，沒有就設為null。availableScanners 更新之後一定要呼叫這個函數。
+        /// 預設會將priority最高的設為currentScanner.
         /// </summary>
         private void UpdateCurrentScanner()
         {
-            // A8優先
-            if (availableScanners.Count > 0)
-            {
-                currentScanner = availableScanners.FirstOrDefault(x => x.ScannerType == ValidScannerType.A8);
-                // 沒有A8再找A6
-                if (currentScanner == null)
-                    currentScanner = availableScanners.FirstOrDefault(x => x.ScannerType == ValidScannerType.A6);
-            }
-            else
-                currentScanner = null;  //目前沒有scanner
+            // 由SortedSet的排序決定目前current是誰
+            //currentScanner = availableScanners.First();
+        }
+
+        public void UpdateCurrentScanner(string productName)
+        {
+            currentScanner = GetCurrentScanner(productName);
         }
 
         public void UnInit()
@@ -639,6 +678,8 @@ namespace ScannerManager
             m_A8manager = null;
             m_pullingTimer?.Stop();
             m_pullingTimer?.Dispose();
+            availableScanners?.Clear();
+            currentScanner = null;
             UnRegisterPowerSessionEvent();  // 必需移除這個事件，不然怕有memory leak
             WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "Scanner manager has un-inited");
         }
@@ -687,10 +728,19 @@ namespace ScannerManager
                     ScannerDriverState state = DriverTester.CheckGivenScannerHasDriver(name);
 
                     string status = instance["Status"] as string;
+                    string deviceID = instance["DeviceID"] as string;
                     uint configManagerErrorCode = Convert.ToUInt32(instance["ConfigManagerErrorCode"]);
-                    Scanner scanner = new Scanner(name, StringToScannerType(name), configManagerErrorCode);
-                    availableScanners.Add(scanner);
-                    OnMachineEvent(true, name);
+                    // 檢查是否正確產品
+                    ValidScannerType type = StringToScannerType(name);
+                    ScannerJsonObject jsonObject = ScannerJsonObject.LoadFromFile(type, deviceID);
+                    if (jsonObject != null)
+                    {
+                        Scanner scanner = new Scanner(type, jsonObject, configManagerErrorCode);
+                        availableScanners.Add(scanner);
+                        //WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "CheckAvailableScanners() find scanner: " + deviceName + ", ID=" + deviceID);
+                        //WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "status=" + status + ", configManagerErrorCode=" + configManagerErrorCode);
+                        OnMachineEvent(true, name);
+                    }
                     //if (state == ScannerDriverState.HasDriver)
                     //{
                     //    if (A8_NAME.Equals(name))
@@ -735,14 +785,50 @@ namespace ScannerManager
         /// <summary>
         /// 回報USB scanner的插拔事件
         /// </summary>
-        private void OnMachineEvent(bool isConnected, string scannerName)
+        private void OnMachineEvent(bool isConnected, string scannerUSBName)
         {
-            ClientApp app = AppManager.TargetApp;
-            if (app != null && !string.IsNullOrEmpty(app.ProductName))
+            //ClientApp app = AppManager.TargetApp;  // 有app才需要回報掃描器插拔事件
+            //if (app != null && !string.IsNullOrEmpty(app.ProductName))
             {
-                // 有app才需要回報掃描器插拔事件
-                MachineEventArgs arg = new MachineEventArgs(app.ProductName, scannerName, isConnected);
-                MachineEvent?.Invoke(this, arg);
+                if (isConnected)
+                {
+                    // 新插入的狀況，如果沒有currentScanner，直接更新！
+                    // 檢查與currentScanner和scannerName之間的priority，看需不需要向App更新這個事件
+                    ValidScannerType newType = StringToScannerType(scannerName);
+                    Scanner newScanner = availableScanners.FirstOrDefault(s => s.ScannerType == newType);
+                    if (currentScanner == null || currentScanner.ScannerType == ValidScannerType.NotSupported || currentScanner.Priority < newScanner.Priority)
+                    {
+                        // 檢查newScanner支援那些App
+                        HashSet<string> supportedApps = productFilter.GetSupportedApps(scannerUSBName);
+                        if (newScanner.IsProductSupported(app.ProductName))
+                        {
+                            // 回報SCAN_STATUS_MACHINE_ON
+                            MachineEventArgs arg = new MachineEventArgs(app.ProductName, scannerName, true);
+                            MachineEvent?.Invoke(this, arg);
+                        }
+                        else  // 紀錄不支援的掃描器
+                            WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "New scanner " + newType + " is not supported by product " + app.ProductName);
+                    }
+                    else
+                    {
+                        // 新的比較低，不管
+                        WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "New scanner " + newType + " priority is lower than " + currentScanner.ScannerType + ", do nothing.");
+                    }
+                }
+                else
+                {
+                    // 拔出裝置的狀況，回報SCAN_STATUS_MACHINE_OFF
+                    MachineEventArgs arg = new MachineEventArgs(app.ProductName, scannerName, false);
+                    MachineEvent?.Invoke(this, arg);
+                    // 如果剩下的掃描器有支援app，再更新
+                    Scanner scn = GetCurrentScanner(app.ProductName);
+                    if (scn != null)
+                    {
+                        currentScanner = scn;
+                        MachineEventArgs arg2 = new MachineEventArgs(app.ProductName, scannerName, true);
+                        MachineEvent?.Invoke(this, arg2);
+                    }
+                }
             }
         }
 
@@ -995,50 +1081,7 @@ namespace ScannerManager
         public bool BooleanStaus;
         public string StringStatus;
         public ScannerResult Result;
-    }
-
-    /// <summary>
-    /// 兩個Scanner實例的比較，僅檢查ScannerType是否相同！
-    /// </summary>
-    public class Scanner : IEquatable<Scanner>
-    {
-        public uint ConfigManagerErrorCode;
-        public ValidScannerType ScannerType;
-
-        private string _deviceName;
-
-        public Scanner(string name, ValidScannerType type, uint errorCode)
-        {
-            _deviceName = name;
-            ConfigManagerErrorCode = errorCode;
-            ScannerType = type;
-        }
-
-        public Scanner()
-        {
-            ScannerType = ValidScannerType.NotSupported;
-            _deviceName = string.Empty;
-            ConfigManagerErrorCode = 0;
-        }
-
-        public string FriendlyName
-        {
-            get { return _deviceName; }
-        }
-
-        public bool Equals(Scanner other)
-        {
-            return ScannerType == other.ScannerType;
-        }
-
-        public override int GetHashCode()
-        {
-            unchecked
-            {
-                return _deviceName.GetHashCode() + ScannerType.GetHashCode();
-            }
-        }
-    }
+    }   
 
     #region event classes
     public class ScanningCompleteArgs : EventArgs
@@ -1074,13 +1117,13 @@ namespace ScannerManager
 
     public class MachineEventArgs : EventArgs
     {
-        public string TargetAppName;
-        public string ScannerName;
+        public HashSet<string> TargetAppNames;
+        //public string ScannerName;
         public bool IsConnected;
-        public MachineEventArgs(string targetAppName, string scannerName, bool isConnected)
+        public MachineEventArgs(HashSet<string> targetAppNames, bool isConnected)
         {
-            TargetAppName = targetAppName;
-            ScannerName = scannerName;
+            TargetAppNames = targetAppNames;
+            //ScannerName = scannerName;
             IsConnected = isConnected;
         }
     }

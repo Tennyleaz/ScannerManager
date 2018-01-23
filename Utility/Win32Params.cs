@@ -22,7 +22,7 @@ namespace Utility
         SCAN_MSG_TYPE_STATUS = 1,  //對應SCAN_STATUS
         SCAN_MSG_TYPE_PRECHECK_RTN_VALUE,  //WC8沒有用到
         SCAN_MSG_TYPE_SCAN_RTN_VALUE,  //對應XSCAN_RTN_VALUE
-        SCAN_MSG_TYPE_CALIBRATE_RTN,  //WC8沒有用到
+        SCAN_MSG_TYPE_CALIBRATE_RTN,  //WC8沒有用到，但是我有用
         SCAN_MSG_TYPE_SCAN_PROGRESS  //WC8沒有用到
     };
 
@@ -61,7 +61,8 @@ namespace Utility
         SCAN_RTN_PAPER_JAM = 9,
         SCAN_RTN_SCANNER_NOT_CONNECTED = 10,
         SCAN_RTN_SCANNER_NEED_CALIBRATE = 11,
-        SCAN_RTN_FAIL_TO_SAVE_IMAGE = 12  // 注意：WC8沒有定義這一項
+        SCAN_RTN_FAIL_TO_SAVE_IMAGE = 12,  // 注意：WC8沒有定義這一項
+        SCAN_RTN_BUSY = 13  // 注意：WC8沒有定義這一項
     };
 
     /// <summary>

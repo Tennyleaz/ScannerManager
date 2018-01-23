@@ -53,6 +53,7 @@ namespace ScannerManager
 
         //private ManualResetEvent signalEvent;
         //private BitmapImage tempImage;
+        private object _A8Lock = new object();
 
         /// <summary>
         /// 建立隱藏的視窗，然後建立Twain實例
@@ -79,18 +80,21 @@ namespace ScannerManager
         /// <returns></returns>
         public A8Result IsPaperOn()
         {
-            A8Result bReturn = A8Result.Fail;
-            Thread thread = new Thread(() =>
+            lock (_A8Lock)
             {
-                A8UtilityWindow A8win = new A8UtilityWindow(A8Utitlty.IsPaperOn);
-                A8win.ShowDialog();
-                bReturn = A8win.Result;
-            });
-            thread.TrySetApartmentState(ApartmentState.STA);
-            thread.Start();
+                A8Result bReturn = A8Result.Fail;
+                Thread thread = new Thread(() =>
+                {
+                    A8UtilityWindow A8win = new A8UtilityWindow(A8Utitlty.IsPaperOn);
+                    A8win.ShowDialog();
+                    bReturn = A8win.Result;
+                });
+                thread.TrySetApartmentState(ApartmentState.STA);
+                thread.Start();
 
-            thread.Join();
-            return bReturn;
+                thread.Join();
+                return bReturn;
+            }
         }
 
         /// <summary>
@@ -99,18 +103,21 @@ namespace ScannerManager
         /// <returns></returns>
         public A8Result IsCalibrationNeeded()
         {
-            A8Result bReturn = A8Result.Fail;
-            Thread thread = new Thread(() =>
+            lock (_A8Lock)
             {
-                A8UtilityWindow A8win = new A8UtilityWindow(A8Utitlty.IsNeedCalibrate);
-                A8win.ShowDialog();
-                bReturn = A8win.Result;
-            });
-            thread.TrySetApartmentState(ApartmentState.STA);
-            thread.Start();
+                A8Result bReturn = A8Result.Fail;
+                Thread thread = new Thread(() =>
+                {
+                    A8UtilityWindow A8win = new A8UtilityWindow(A8Utitlty.IsNeedCalibrate);
+                    A8win.ShowDialog();
+                    bReturn = A8win.Result;
+                });
+                thread.TrySetApartmentState(ApartmentState.STA);
+                thread.Start();
 
-            thread.Join();
-            return bReturn;
+                thread.Join();
+                return bReturn;
+            }
         }
 
         /// <summary>
@@ -119,18 +126,21 @@ namespace ScannerManager
         /// <returns></returns>
         public A8Result CalibrateScanner()
         {
-            A8Result bReturn = A8Result.Fail;
-            Thread thread = new Thread(() =>
+            lock (_A8Lock)
             {
-                A8UtilityWindow A8win = new A8UtilityWindow(A8Utitlty.DoCalibrate);
-                A8win.ShowDialog();
-                bReturn = A8win.Result;
-            });
-            thread.TrySetApartmentState(ApartmentState.STA);
-            thread.Start();
+                A8Result bReturn = A8Result.Fail;
+                Thread thread = new Thread(() =>
+                {
+                    A8UtilityWindow A8win = new A8UtilityWindow(A8Utitlty.DoCalibrate);
+                    A8win.ShowDialog();
+                    bReturn = A8win.Result;
+                });
+                thread.TrySetApartmentState(ApartmentState.STA);
+                thread.Start();
 
-            thread.Join();
-            return bReturn;
+                thread.Join();
+                return bReturn;
+            }
         }
 
         /// <summary>
@@ -139,22 +149,25 @@ namespace ScannerManager
         /// <returns></returns>
         public A8Result Scan()
         {
-            A8Result bReturn = A8Result.Fail;
-            Thread thread = new Thread(() =>
+            lock (_A8Lock)
             {
-                A8ScanWindow A8win = new A8ScanWindow(myCallback);
-                A8win.ShowDialog();
-                bReturn = A8win.Result;
+                A8Result bReturn = A8Result.Fail;
+                Thread thread = new Thread(() =>
+                {
+                    A8ScanWindow A8win = new A8ScanWindow(myCallback);
+                    A8win.ShowDialog();
+                    bReturn = A8win.Result;
                 //A8win.TransferTempImage += A8win_TransferTempImage;
                 //A8win.TransferCompleteImage += A8win_TransferCompleteImage;              
-            });
-            thread.TrySetApartmentState(ApartmentState.STA);
-            thread.Start();
+                });
+                thread.TrySetApartmentState(ApartmentState.STA);
+                thread.Start();
 
-            thread.Join();
-            //signalEvent.WaitOne(); //This thread will block here until the reset event is sent.
-            //signalEvent.Reset();
-            return bReturn;
+                thread.Join();
+                //signalEvent.WaitOne(); //This thread will block here until the reset event is sent.
+                //signalEvent.Reset();
+                return bReturn;
+            }
         }
 
         private void myCallback(int i, BitmapImage bmp)
