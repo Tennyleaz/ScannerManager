@@ -36,7 +36,21 @@ namespace ScannerManager
 
         [DllImport("user32.dll", SetLastError = true)]
         [return: MarshalAs(UnmanagedType.Bool)]
-        static extern bool GetWindowRect(IntPtr hWnd, ref RECT lpRect);
+        private static extern bool GetWindowRect(IntPtr hWnd, ref RECT lpRect);
+
+        [DllImport(@"AutoCrop Wrapper.dll", CallingConvention = CallingConvention.Cdecl)]
+        public static extern short AutoCrop([MarshalAs(UnmanagedType.LPWStr)] string strFileName);
+        // see https://stackoverflow.com/questions/4608876/c-sharp-dllimport-with-c-boolean-function-not-returning-correctly
+
+        [DllImport("kernel32.dll", CharSet = CharSet.Auto, SetLastError = true)]
+        public static extern bool SetDllDirectory(string lpPathName);
+        // see https://stackoverflow.com/questions/8836093/how-can-i-specify-a-dllimport-path-at-runtime
+        // use it to set the directory for dllimport
+
+        [DllImport("User32.dll")]
+        public static extern IntPtr GetDC(IntPtr hwnd);
+        [DllImport("User32.dll")]
+        public static extern void ReleaseDC(IntPtr hwnd, IntPtr dc);
 
         [StructLayout(LayoutKind.Sequential)]
         private struct RECT
@@ -78,6 +92,20 @@ namespace ScannerManager
                 clientRect.Y += rct.Top;
             }
             return clientRect;
+        }
+
+        /// <summary>
+        /// Returns "%program files (x86)%\Penpower\iScan2\Bin\"
+        /// </summary>
+        public static string IscanPath
+        {
+            get
+            {
+                // see https://stackoverflow.com/questions/194157/c-sharp-how-to-get-program-files-x86-on-windows-64-bit
+                string programFiles = Environment.GetEnvironmentVariable("PROGRAMFILES(X86)") ??
+                    Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles);
+                return programFiles + @"\Penpower\iScan2\Bin\";
+            }
         }
     }
 }

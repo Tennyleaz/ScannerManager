@@ -5,7 +5,8 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:ScannerManager"
         mc:Ignorable="d"
-        Title="ScannerPreview" Height="300" Width="400" 
+        Background="Transparent"
+        Title="ScannerPreview" Height="10" Width="240" 
         WindowStyle="None" WindowState="Normal" ResizeMode="NoResize" ShowInTaskbar="False" Topmost="True">
     <Grid>
         <Image Name="previewImage"></Image>

@@ -21,6 +21,7 @@ namespace ScannerManager
     /// </summary>
     public partial class DrawPreview : Window
     {
+        [Obsolete("改用HDC方式來畫在指定視窗上", true)]
         public DrawPreview(Rect drawBoundary)
         {
             InitializeComponent();

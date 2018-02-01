@@ -23,6 +23,12 @@ namespace ScannerManager
     /// </summary>
     public partial class ScannerPreview : Window
     {
+        private double screenX, screenY;
+        private const int maxPreviewWidthLandscape = 240;  // 允許預覽圖的最大寬度
+        private const int maxPreviewWidthHorizontal = 386;  // 允許預覽圖的最大寬度
+        private const int baseWindowHeight = 36;  // ScanningBaseWindow的高度目前是36px
+        private bool _lastIsLandscape;
+
         public ScannerPreview()
         {
             InitializeComponent();
@@ -43,15 +49,32 @@ namespace ScannerManager
         /// </summary>
         private void SetScreenPositiopn()
         {
-            double x = System.Windows.SystemParameters.WorkArea.Width;
-            double y = System.Windows.SystemParameters.WorkArea.Height;
-            // ScanningBaseWindow的高度目前是40px
-            int baseWindowHeight = 40;
-            this.Left = x - this.Width;
-            this.Top = y - this.Height - baseWindowHeight;
+            screenX = System.Windows.SystemParameters.WorkArea.Width;
+            screenY = System.Windows.SystemParameters.WorkArea.Height;
+            
+            this.Left = screenX - this.Width;
+            this.Top = screenY - this.Height - baseWindowHeight;
         }
 
-        public void UpdateImage(Bitmap bmp)
+        private void AdjustWindowSize(double w, double h, bool isLandscape)
+        {
+            double ratio;
+            if (isLandscape)
+            {
+                ratio = w / maxPreviewWidthHorizontal;
+                this.Width = maxPreviewWidthHorizontal;
+            }
+            else
+            {
+                ratio = w / maxPreviewWidthLandscape;
+                this.Width = maxPreviewWidthLandscape;
+            }
+            //this.Width = w / ratio;
+            this.Height = h / ratio;
+            SetScreenPositiopn();
+        }
+
+        /*public void UpdateImage(Bitmap bmp)
         {
             if (bmp == null)
                 return;
@@ -69,9 +92,9 @@ namespace ScannerManager
             {
                 previewImage.Source = BitmapToImageSource(bmp);
             }
-        }
+        }*/
 
-        public void UpdateImage(BitmapImage bmp)
+        public void UpdateImage(BitmapImage bmp, bool isLandscape)
         {
             if (bmp == null)
                 return;
@@ -81,12 +104,14 @@ namespace ScannerManager
                     new Action(
                         () =>
                         {
+                            AdjustWindowSize(bmp.Width, bmp.Height, isLandscape);
                             previewImage.Source = bmp;
                         })
                     );
             }
             else
             {
+                AdjustWindowSize(bmp.Width, bmp.Height, isLandscape);
                 previewImage.Source = bmp;
             }
         }

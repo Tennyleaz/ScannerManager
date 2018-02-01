@@ -59,6 +59,11 @@
             An optional boolean.
             </summary>
         </member>
+        <member name="F:NamedPipeWrapper.ToAppMessage.OptionalInt">
+            <summary>
+            An optional interger.
+            </summary>
+        </member>
         <member name="F:NamedPipeWrapper.ToAppMessage.Result">
             <summary>
             Result states of command. This field is always required.
@@ -94,9 +99,14 @@
             Need ProductName. Return OptionalFilePath string. Will block for return value.
             </summary>
         </member>
+        <member name="F:NamedPipeWrapper.PipeCommands.GetSupportedScannerCount">
+            <summary>
+            Need ProductName. Return OptionalInt. Will block for return value.
+            </summary>
+        </member>
         <member name="F:NamedPipeWrapper.PipeCommands.Calibration">
             <summary>
-            Need ProductName. Will block for return value.
+            Need ProductName and OptionalStatus.. Will block for return value.
             </summary>
         </member>
         <member name="F:NamedPipeWrapper.PipeCommands.IsCalibrationNeed">

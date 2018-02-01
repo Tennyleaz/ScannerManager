@@ -15,9 +15,11 @@ namespace ScannerManager
     {
         public uint ConfigManagerErrorCode;
         public ValidScannerType ScannerType;
+        public string ID;
 
+        private bool _isWide;
         private string _deviceName;
-        private string _friendlyName;        
+        private string _friendlyName;
         private HashSet<string> supportedProductNames;
         private int priotity;
 
@@ -38,6 +40,8 @@ namespace ScannerManager
             _friendlyName = jsonObject.FriendlyName;
             ConfigManagerErrorCode = errorCode;
             priotity = jsonObject.Priority;
+            ID = jsonObject.ID;
+            _isWide = jsonObject.IsLandscape;
             supportedProductNames = new HashSet<string>(jsonObject.Support);            
         }
 
@@ -47,6 +51,14 @@ namespace ScannerManager
             _deviceName = string.Empty;
             ConfigManagerErrorCode = 0;
         }*/
+
+        /// <summary>
+        /// 取得目前掃描器是橫向還是直向預覽
+        /// </summary>
+        public bool IsLandscape
+        {
+            get { return _isWide; }
+        }
 
         public string FriendlyName
         {
@@ -67,14 +79,14 @@ namespace ScannerManager
         {
             if (other == null)
                 return false;
-            return ScannerType == other.ScannerType;
+            return (ScannerType == other.ScannerType && _friendlyName == other.FriendlyName);
         }
 
         public override int GetHashCode()
         {
             unchecked
             {
-                return _deviceName.GetHashCode() + ScannerType.GetHashCode();
+                return _friendlyName.GetHashCode() + ScannerType.GetHashCode();
             }
         }
 
@@ -85,7 +97,7 @@ namespace ScannerManager
 
         private void LoadScannerAttributes(string pidVidString)
         {
-            string jsonPath = @"C:\Program Files (x86)\Penpower\iScan2\Bin\" + ScannerType.ToString() + ".json";
+            string jsonPath = Win32Message.IscanPath + ScannerType.ToString() + ".json";
             if (!File.Exists(jsonPath))
             {
                 Logger.WriteLog("ScannerManager", LOG_LEVEL.LL_SERIOUS_ERROR, "Cannot find json file: " + ScannerType.ToString() + ".json");
@@ -128,8 +140,10 @@ namespace ScannerManager
         public string USBName { get; set; }
         public string VID { get; set; }
         public string PID { get; set; }
+        public string ID { get; set; }
         public int Priority { get; set; }
         public List<string> Support { get; set; }
+        public bool IsLandscape { get; set; }
 
         public bool CheckPidVid(string deviceIDString)
         {
@@ -143,6 +157,15 @@ namespace ScannerManager
             return false;
         }
 
+        public ValidScannerType GetTypeEnum()
+        {
+            ValidScannerType t_out;
+            if (Enum.TryParse(ScannerType, out t_out))
+                return t_out;
+            else
+                return ValidScannerType.NotSupported;
+        }
+
         /// <summary>
         /// 如果PID/VID不一樣，或是json檔案有問題，都會傳回null
         /// </summary>
@@ -151,7 +174,7 @@ namespace ScannerManager
         /// <returns></returns>
         public static ScannerJsonObject LoadFromFile(ValidScannerType type, string pidVidString)
         {
-            string jsonPath = @"C:\Program Files (x86)\Penpower\iScan2\Bin\" + type.ToString() + ".json";
+            string jsonPath = Win32Message.IscanPath + type.ToString() + ".json";
             if (!File.Exists(jsonPath))
             {
                 Logger.WriteLog("ScannerManager", LOG_LEVEL.LL_SERIOUS_ERROR, "Cannot find json file: " + type.ToString() + ".json");

@@ -46,9 +46,29 @@ namespace ScannerManager
         Fail
     }
 
+    class A8ScanArgs : EventArgs
+    {
+        /// <summary>
+        /// 掃描結果的BitmapImage，只能讀取
+        /// </summary>
+        public Bitmap ResultImage;
+        /// <summary>
+        /// 在ScannerManager傳回圖片給IScanX.exe用的。紀錄目標名稱，存檔用的
+        /// </summary>
+        public string TargetAppName;
+        /// <summary>
+        /// 掃描的結果或是例外狀態
+        /// </summary>
+        public NamedPipeWrapper.ScannerResult Result;
+        public A8ScanArgs(Bitmap bmp)
+        {
+            ResultImage = bmp;
+        }
+    }
+
     class A8Manager
     {
-        public delegate void ScannigHandler(object sender, ScanningCompleteArgs e);  //定義Event handler        
+        public delegate void ScannigHandler(object sender, A8ScanArgs e);  //定義Event handler        
         public event ScannigHandler RetrieveTempImage; //做一份實例
 
         //private ManualResetEvent signalEvent;
@@ -154,7 +174,7 @@ namespace ScannerManager
                 A8Result bReturn = A8Result.Fail;
                 Thread thread = new Thread(() =>
                 {
-                    A8ScanWindow A8win = new A8ScanWindow(myCallback);
+                    A8ScanWindow A8win = new A8ScanWindow(myCallback2);
                     A8win.ShowDialog();
                     bReturn = A8win.Result;
                 //A8win.TransferTempImage += A8win_TransferTempImage;
@@ -179,10 +199,28 @@ namespace ScannerManager
                 {
                     try
                     {
-                        //string fileName = @"D:\A8\pic" + i.ToString() + ".bmp";
-                        //bmp.Save(fileName, System.Drawing.Imaging.ImageFormat.Bmp);
-                        //tempImage = BitmapToImageSource(bmp);
-                        ScanningCompleteArgs arg = new ScanningCompleteArgs(bmp);
+                        /*ScanningCompleteArgs arg = new ScanningCompleteArgs(bmp);
+                        RetrieveTempImage?.Invoke(this, arg);*/
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine(ex);
+                        // 最後一張bmp這裡會出問題，不知道為什麼。不過反正最後一次call和前一次call的圖不會改變...
+                    }
+                }
+            }
+        }
+
+        private void myCallback2(int i, Bitmap bmp)
+        {
+            //Console.WriteLine(i);
+            if (bmp != null)
+            {
+                lock (bmp)
+                {
+                    try
+                    {
+                        A8ScanArgs arg = new A8ScanArgs(bmp);
                         RetrieveTempImage?.Invoke(this, arg);
                     }
                     catch (Exception ex)

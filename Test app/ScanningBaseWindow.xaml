@@ -6,8 +6,9 @@
         xmlns:local="clr-namespace:Test_app"
         mc:Ignorable="d"
         Title="ScanningBaseWindow" 
-        Height="40" Width="300" 
-        Background="BlanchedAlmond"
+        Height="36" Width="242" 
+        Background="Transparent"
+        AllowsTransparency="True"
         Closing="Window_Closing" 
         SourceInitialized="Window_SourceInitialized"
         WindowStyle="None" WindowState="Normal" ResizeMode="NoResize" ShowInTaskbar="False" Topmost="True">
@@ -35,18 +36,107 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+        <!--Button的圖片-->
+        <!--<ImageSource x:Key="normalPic" >pack://application:,,,/Icons/直接掃描(雙面)_忽略背面_N.png</ImageSource>
+        <Image x:Key="downPic" Source="pack://application:,,,/Icons/直接掃描(雙面)_忽略背面_D.png"/>
+        <Image x:Key="overPic" Source="pack://application:,,,/Icons/直接掃描(雙面)_忽略背面_O.png"/>-->
+        <!--button style-->
+        <Style x:Key="ButtonStyleNew" TargetType="{x:Type Button}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="btnborder" CornerRadius="5" Background="#FF336C99" BorderBrush="#FF19629B" BorderThickness="0">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" TargetName="btnborder" Value="#FF5C98C0"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" TargetName="btnborder" Value="#FF326D96"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="ButtonStyleOld" TargetType="{x:Type Button}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="myBtnBorder" TextBlock.Foreground="White" CornerRadius="5" BorderBrush="#FF4D4D4D" BorderThickness="1">
+                            <Border.Background>
+                                <LinearGradientBrush StartPoint="0,0" EndPoint="0,0.6">
+                                    <GradientStop Color="#FF353535" Offset="0.0" />
+                                    <GradientStop Color="#FF000000" Offset="1.0" />
+                                </LinearGradientBrush>
+                            </Border.Background>
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <!--Mouse over-->
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter Property="Background" TargetName="myBtnBorder">
+                                    <Setter.Value>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,0.6">
+                                            <GradientStop Color="#FF575757" Offset="0.0" />
+                                            <GradientStop Color="#FF1A1A1A" Offset="1.0" />
+                                        </LinearGradientBrush>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                            <!--Mouse down-->
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter Property="Background" TargetName="myBtnBorder">
+                                    <Setter.Value>
+                                        <LinearGradientBrush StartPoint="0,0" EndPoint="0,0.7">
+                                            <GradientStop Color="#FF151515" Offset="0.0" />
+                                            <GradientStop Color="#FF2B2B2B" Offset="0.3" />
+                                            <GradientStop Color="#FF181818" Offset="1.0" />
+                                        </LinearGradientBrush>
+                                    </Setter.Value>
+                                </Setter>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <!--window border style-->
+        <Style x:Key="BorderStyleOld" TargetType="{x:Type Border}">
+            <Setter Property="Background">
+                <Setter.Value>
+                    <LinearGradientBrush StartPoint="0,0" EndPoint="0,0.6">
+                        <GradientStop Color="#FF3F3F3F" Offset="0.0" />
+                        <GradientStop Color="#FF000000" Offset="1.0" />
+                    </LinearGradientBrush>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="BorderBrush" Value="#FF6E6E6E"/>
+        </Style>
+        <Style x:Key="BorderStyleNew" TargetType="{x:Type Border}">
+            <Setter Property="Background" Value="#FF4485B6"/>
+            <Setter Property="BorderThickness" Value="1,0,1,0"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+        </Style>
     </Window.Resources>
     
-    <Grid>
-        <Rectangle Name="rectStatus" Width="50" Height="20" Margin="10,0,0,0" Fill="Green" HorizontalAlignment="Left"/>
-        <Grid Name="gridPages">
-            <Label Name="lbFrontBG" FontSize="16" Margin="60,5,0,0" Foreground="LightGray">Front</Label>
-            <Label Name="lbBackBG" FontSize="16" Margin="110,5,0,0" Foreground="LightGray">Back</Label>
+    <!--圓角外觀-->
+    <Border Name="windowBorder" CornerRadius="10,10,0,0" Style="{DynamicResource BorderStyleOld}">
+        <Grid>
+            <Rectangle Name="rectStatus" Width="30" Height="20" Margin="60,0,0,0" Fill="Green" HorizontalAlignment="Left"/>
+            <Grid Name="gridPages">
+                <Label Name="lbFrontBG" FontSize="16" Margin="10,5,0,0" Foreground="LightGray">F</Label>
+                <Label Name="lbBackBG" FontSize="16" Margin="30,5,0,0" Foreground="LightGray">B</Label>
+
+                <Label Name="lbFront" FontSize="16" Margin="10,5,0,0">F</Label>
+                <Label Name="lbBack" FontSize="16" Margin="30,5,0,0" Visibility="Hidden">B</Label>
+            </Grid>
             
-            <Label Name="lbFront" FontSize="16" Margin="60,5,0,0">Front</Label>            
-            <Label Name="lbBack" FontSize="16" Margin="110,5,0,0" Visibility="Hidden">Back</Label>
-            
+            <Button Name="btnSkip" Style="{DynamicResource ButtonStyleOld}" Width="129" Height="28" Margin="0,0,10,0" HorizontalAlignment="Right" Click="btnSkip_Click">
+                Skip
+            </Button>
         </Grid>
-        <Button Name="btnSkip" Width="50" Height="24" Margin="0,0,10,0" HorizontalAlignment="Right" Click="btnSkip_Click">Skip</Button>
-    </Grid>
+    </Border>
 </Window>

@@ -31,7 +31,10 @@ namespace ScannerManager
                     // 先找前景的window handle
                     IntPtr foregroundHandle = Win32Message.GetForegroundWindow();
                     // 檢查clientApps內有沒有這個handle
-                    ClientApp targetApp = clientApps.FirstOrDefault(app => app.WindowHandle == foregroundHandle);
+                    ClientApp targetApp = clientApps.FirstOrDefault(app => 
+                        app.WindowHandle == foregroundHandle 
+                        || (app.ChildWindowHandle == foregroundHandle && app.ChildWindowHandle != IntPtr.Zero));
+
                     if (targetApp != null)
                     {
                         return targetApp;
@@ -52,6 +55,7 @@ namespace ScannerManager
         {
             // todo: 如果同樣的product name怎麼辦？
             WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "AddClientApp: " + targetApp.ProductName + ", handle=" + (int)targetApp.WindowHandle);
+            ProductFilter.GetProducts().AddApp(targetApp.ProductName);
             return clientApps.Add(targetApp);
         }
 
@@ -60,6 +64,7 @@ namespace ScannerManager
             if (!string.IsNullOrEmpty(targetAppName))
             {
                 clientApps.RemoveWhere(app => app.ProductName == targetAppName);
+                ProductFilter.GetProducts().RemoveApp(targetAppName);
                 WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "RemoveClientApp: " + targetAppName);
             }
             else
@@ -79,29 +84,114 @@ namespace ScannerManager
         }
 
         /// <summary>
-        /// 尋找同名的ClientApp並取代之
+        /// 尋找同名的ClientApp並更新rect, 兩個handle
         /// </summary>
         /// <param name="targetApp"></param>
         /// <returns></returns>
-        public bool UpdateApp(ClientApp targetApp)
+        public bool UpdateApp(ClientApp inApp)
         {
-            clientApps.RemoveWhere(app => app.ProductName == targetApp.ProductName);
-            WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "UpdateApp: " + targetApp.ProductName + ", handle=" + (int)targetApp.WindowHandle);
-            return clientApps.Add(targetApp);
+            //clientApps.RemoveWhere(app => app.ProductName == targetApp.ProductName);
+            //WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "UpdateApp: " + targetApp.ProductName + ", handle=" + (int)targetApp.WindowHandle);
+            //return clientApps.Add(targetApp);
+            ClientApp targetApp = clientApps.FirstOrDefault(app => app.ProductName == inApp.ProductName);
+            if (targetApp != null)
+            {
+                targetApp.TargetWindowRect = inApp.TargetWindowRect;
+                if (inApp.WindowHandle != IntPtr.Zero)
+                    targetApp.WindowHandle = inApp.WindowHandle;
+                targetApp.ChildWindowHandle = inApp.ChildWindowHandle;
+                return true;
+            }
+            else
+            {
+                return clientApps.Add(inApp);
+            }
         }
 
+        public bool UpdateAppHandle(string targetAppName, IntPtr handle)
+        {
+            if (string.IsNullOrEmpty(targetAppName))
+            {
+                WriteLog(LOG_LEVEL.LL_SUB_FUNC, "UpdateAppChildHandle: productName is enpty.");
+                return false;
+            }
+
+            ClientApp targetApp = clientApps.FirstOrDefault(app => app.ProductName == targetAppName);
+            if (targetApp != null)
+            {
+                targetApp.WindowHandle = handle;
+                return true;
+            }
+            return false;
+        }
+
+        public bool UpdateAppChildHandle(string targetAppName, IntPtr handle)
+        {
+            if (string.IsNullOrEmpty(targetAppName))
+            {
+                WriteLog(LOG_LEVEL.LL_SUB_FUNC, "UpdateAppChildHandle: productName is enpty.");
+                return false;
+            }
+
+            ClientApp targetApp = clientApps.FirstOrDefault(app => app.ProductName == targetAppName);
+            if (targetApp != null)
+            {
+                targetApp.ChildWindowHandle = handle;
+                return true;
+            }
+            return false;
+        }
+
+        public bool ClearAppChildHandle(string targetAppName)
+        {
+            if (string.IsNullOrEmpty(targetAppName))
+            {
+                WriteLog(LOG_LEVEL.LL_SUB_FUNC, "ClearAppChildHandle: productName is enpty.");
+                return false;
+            }
+
+            ClientApp targetApp = clientApps.FirstOrDefault(app => app.ProductName == targetAppName);
+            if (targetApp != null)
+            {
+                targetApp.ChildWindowHandle = IntPtr.Zero;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 如果App有Child handle，會優先送給child
+        /// </summary>
+        /// <param name="targetAppName"></param>
+        /// <param name="wParam"></param>
+        /// <param name="lParam"></param>
+        /// <returns></returns>
         public bool SendMessageToApp(string targetAppName, int wParam, int lParam)
         {
             ClientApp targetApp = clientApps.FirstOrDefault(app => app.ProductName == targetAppName);
             if (targetApp != null)
             {
-                WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "PostMessage to app handle=" + (int)targetApp.WindowHandle + ", wParam=" + wParam + ", lParam=" + lParam);
-                return Win32Message.PostMessage(targetApp.WindowHandle, MessageIdentifier, wParam, lParam);
+                if (targetApp.ChildWindowHandle != IntPtr.Zero)
+                {
+                    WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "PostMessage to app child handle=" + (int)targetApp.ChildWindowHandle + ", wParam=" + wParam + ", lParam=" + lParam);
+                    Win32Message.PostMessage(targetApp.ChildWindowHandle, MessageIdentifier, wParam, lParam);
+                }
+                else
+                {
+                    WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "PostMessage to app handle=" + (int)targetApp.WindowHandle + ", wParam=" + wParam + ", lParam=" + lParam);
+                    return Win32Message.PostMessage(targetApp.WindowHandle, MessageIdentifier, wParam, lParam);
+                }
             }
             WriteLog(LOG_LEVEL.LL_SUB_FUNC, "SendMessageToApp error: cannot find foreground app");
             return false;
         }
 
+        /// <summary>
+        /// 給機器狀態變化專用的
+        /// </summary>
+        /// <param name="targetAppNames"></param>
+        /// <param name="wParam"></param>
+        /// <param name="lParam"></param>
         public void SendMessageToApps(HashSet<string> targetAppNames, int wParam, int lParam)
         {
             if (targetAppNames == null)
@@ -113,6 +203,11 @@ namespace ScannerManager
                 {
                     WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "PostMessage to app handle=" + (int)targetApp.WindowHandle + ", wParam=" + wParam + ", lParam=" + lParam);
                     Win32Message.PostMessage(targetApp.WindowHandle, MessageIdentifier, wParam, lParam);
+                    if (targetApp.ChildWindowHandle != IntPtr.Zero)
+                    {
+                        WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "PostMessage to app child handle=" + (int)targetApp.ChildWindowHandle + ", wParam=" + wParam + ", lParam=" + lParam);
+                        Win32Message.PostMessage(targetApp.ChildWindowHandle, MessageIdentifier, wParam, lParam);
+                    }
                 }
             }            
         }
@@ -171,6 +266,29 @@ namespace ScannerManager
             return false;
         }
 
+        /// <summary>
+        /// 取得目標App的window handle
+        /// </summary>
+        /// <param name="productName"></param>
+        /// <returns></returns>
+        public IntPtr GetHandleByName(string productName)
+        {
+            if (string.IsNullOrEmpty(productName))
+            {
+                WriteLog(LOG_LEVEL.LL_SUB_FUNC, "GetHandleByName: productName is enpty.");
+                return IntPtr.Zero;
+            }
+
+            ClientApp targetApp = clientApps.FirstOrDefault(app => app.ProductName == productName);
+            if (targetApp != null)
+            {
+                if (targetApp.ChildWindowHandle != IntPtr.Zero)
+                    return targetApp.ChildWindowHandle;
+                return targetApp.WindowHandle;
+            }
+            return IntPtr.Zero;
+        }
+
         public void RemoveEverything()
         {
             clientApps.Clear();
@@ -190,7 +308,8 @@ namespace ScannerManager
         //public string ConnectionName;
         public string ProductName;
         public string LastScanFileName;
-        public IntPtr WindowHandle;
+        public IntPtr WindowHandle = IntPtr.Zero;
+        public IntPtr ChildWindowHandle = IntPtr.Zero;
         public Rect TargetWindowRect;
     }
 }

@@ -33,7 +33,7 @@
             </summary>
             <param name="scanSettings">The scan settings.</param>
         </member>
-        <member name="M:TwainDotNet.DataSource.Open(TwainDotNet.ScanSettings,System.Boolean)">
+        <member name="M:TwainDotNet.DataSource.OpenAndScan(TwainDotNet.ScanSettings,System.Boolean)">
             <summary>
             先open data source進入state 4，然後才做Capability Negotiation
             </summary>
@@ -133,16 +133,22 @@
             <param name="imageMemXfer"></param>
             <param name="bytePerPixel"></param>
         </member>
-        <member name="M:TwainDotNet.DataSourceManager.GetCropHeight(System.Drawing.Bitmap)">
+        <member name="M:TwainDotNet.DataSourceManager.GetCropHeight(System.Drawing.Bitmap,System.Boolean)">
             <summary>
             算出圖片尾端黑色+(70,70,70)灰色的總高度
             </summary>
             <param name="bmp"></param>
+            <param name="isCompleteImage">true代表算灰色，false代表算白色</param>
             <returns></returns>
         </member>
         <member name="M:TwainDotNet.DataSourceManager.cropImage(System.Drawing.Bitmap,System.Int32)">
             <summary>
-            切掉圖片的尾端指定高度
+            切掉圖片的尾端指定高度，會傳回一份新的圖，舊圖不變
+            </summary>
+        </member>
+        <member name="F:TwainDotNet.DataSourceManager.DefaultApplicationId">
+            <summary>
+            Please see twain spec pdf p.3-12
             </summary>
         </member>
         <member name="P:TwainDotNet.IWindowsMessageHook.UseFilter">
@@ -244,6 +250,11 @@
         <member name="F:TwainDotNet.ScanSettings.Contrast">
             <summary>
             The contrast values available within the Source. -1000~1000, default value is 0.
+            </summary>
+        </member>
+        <member name="F:TwainDotNet.ScanSettings.Brightness">
+            <summary>
+            Allowed values: -1000~1000, default value is 0.
             </summary>
         </member>
         <member name="P:TwainDotNet.ScanSettings.ShowTwainUI">
@@ -566,9 +577,29 @@
             DSM_Entry with a user interface parameter. Acts on the data source.
             </summary>
         </member>
+        <member name="F:TwainDotNet.TwainNative.Identity.Version">
+            <summary>
+            Information about twain protocal.
+            </summary>
+        </member>
         <member name="T:TwainDotNet.TwainNative.TwainVersion">
             <summary>
             TW_VERSION
+            </summary>
+        </member>
+        <member name="F:TwainDotNet.TwainNative.TwainVersion.MajorNum">
+            <summary>
+            Your app's version number.
+            </summary>
+        </member>
+        <member name="F:TwainDotNet.TwainNative.TwainVersion.MinorNum">
+            <summary>
+            Your app's version number.
+            </summary>
+        </member>
+        <member name="F:TwainDotNet.TwainNative.TwainVersion.Info">
+            <summary>
+            Your App's Version String
             </summary>
         </member>
         <member name="F:TwainDotNet.TwainNative.Capabilities.A8_Calibrate">

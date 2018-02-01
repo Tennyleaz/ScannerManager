@@ -26,7 +26,8 @@ namespace Test_app
     /// </summary>
     public partial class MainWindow : Window
     {
-        private const string TEMP_PATH = @"\Temp\ScannerManager\";
+        private const string TEMP_PATH = @"\Penpower\iScan2\CardTemp\";
+        private const string NEW_STYLE_PRODUCT = "WorldCardTeam";
         private ScannerManager.ScannerManager scannerManager;
         private AppManager appManager;
         private NamedPipeWrapper.Server<ToIScanMessage, ToAppMessage> server;
@@ -48,6 +49,13 @@ namespace Test_app
             LoadNamedPipeServer();
             //RegisterProcessStartEvent();
             DriverTester.ReadScannerDrivers();
+
+            // try to load AutoCrop Wrapper.dll
+            if (Win32Message.SetDllDirectory(Win32Message.IscanPath) == false)
+            {
+                WriteLog(LOG_LEVEL.LL_SERIOUS_ERROR, "Cannot load additional dll directory.");
+            }
+
             Console.WriteLine("MainWindow() done.");
             WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "Scanner Manager exe init finish.");
         }
@@ -67,7 +75,7 @@ namespace Test_app
             }
         }
 
-        private void ShowScanningBaseWindow()
+        private void ShowScanningBaseWindow(bool isNewStyle, bool isLandscape)
         {
             if (!toShowLogo)
                 return;
@@ -76,12 +84,12 @@ namespace Test_app
             {
                 if (scanningBaseWindow == null)
                 {
-                    scanningBaseWindow = new ScanningBaseWindow(SkipButtonClickedCallback);                    
+                    scanningBaseWindow = new ScanningBaseWindow(SkipButtonClickedCallback, isNewStyle, isLandscape);                    
                     scanningBaseWindow.Show();
                 }
                 else
                 {
-                    scanningBaseWindow.SetScreenPositiopn();  //避免工作區變化讓它不在右下角
+                    scanningBaseWindow.SetScreenPosition(isNewStyle, isLandscape);  //避免工作區變化讓它不在右下角
                     scanningBaseWindow.Visibility = Visibility.Visible;
                 }
             }
@@ -91,12 +99,12 @@ namespace Test_app
                 {
                     if (scanningBaseWindow == null)
                     {
-                        scanningBaseWindow = new ScanningBaseWindow(SkipButtonClickedCallback);                        
+                        scanningBaseWindow = new ScanningBaseWindow(SkipButtonClickedCallback, isNewStyle, isLandscape);                        
                         scanningBaseWindow.Show();
                     }
                     else
                     {
-                        scanningBaseWindow.SetScreenPositiopn();  //避免工作區變化讓它不在右下角
+                        scanningBaseWindow.SetScreenPosition(isNewStyle, isLandscape);  //避免工作區變化讓它不在右下角
                         scanningBaseWindow.Visibility = Visibility.Visible;
                     }
                 } );
@@ -162,7 +170,7 @@ namespace Test_app
                 if (e.ResultImage != null)
                 {
                     BitmapImage bmp = e.ResultImage as BitmapImage;
-                    string tempName = e.TargetAppName + DateTime.Now.ToString("HHmmss") + ".jpg";
+                    string tempName = e.TargetAppName + DateTime.Now.ToString("HHmmss") + ".bmp";
                     string path = SavePhoto(bmp, tempName);
                     // 檢查檔案存在與否
                     if (File.Exists(path))
@@ -215,6 +223,7 @@ namespace Test_app
             }
             // 將狀態視窗亮綠燈
             scanningBaseWindow?.SetBusy(false);
+            GC.Collect();
         }
 
         /// <summary>
@@ -223,7 +232,7 @@ namespace Test_app
         private string SavePhoto(BitmapImage objImage, string fileName)
         {
             // https://stackoverflow.com/questions/35804375/how-do-i-save-a-bitmapimage-from-memory-into-a-file-in-wpf-c
-            BitmapEncoder encoder = new JpegBitmapEncoder();            
+            BitmapEncoder encoder = new BmpBitmapEncoder();        
             string path = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData) + TEMP_PATH;
             try
             {
@@ -233,10 +242,59 @@ namespace Test_app
                 }
                 string photolocation = path + fileName;   //file name 
 
-                encoder.Frames.Add(BitmapFrame.Create(objImage));
+                FormatConvertedBitmap FmtCnvBmp = new FormatConvertedBitmap(objImage, PixelFormats.Rgb24, null, 1.0);
+                encoder.Frames.Add(BitmapFrame.Create(FmtCnvBmp));
 
                 using (var filestream = new FileStream(photolocation, FileMode.Create))
                     encoder.Save(filestream);
+
+                // Auto crop pic
+                WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "Doing auto crop...");
+                short srtn = 0;
+                try
+                {
+                    srtn = Win32Message.AutoCrop(photolocation);
+                }
+                catch (DllNotFoundException)
+                {
+                    WriteLog(LOG_LEVEL.LL_SERIOUS_ERROR, "Can't find AutoCrop Wrapper.dll");
+                    return photolocation;
+                }
+                // Process return code
+                if (srtn == 1)
+                {
+                    WriteLog(LOG_LEVEL.LL_NORMAL_LOG, "Doing auto crop...done");
+                    string newFile = photolocation.Substring(0, photolocation.Length - 4) + "_a.bmp";
+                    if (File.Exists(newFile))
+                        return newFile;
+                    else
+                        WriteLog(LOG_LEVEL.LL_SERIOUS_ERROR, "AutoCrop success, but can't find file: " + newFile);
+                }
+                else
+                {
+                    // returns: 0=file not exist or fail to read, 1=success, 2=fail to auto crop, 3=fail to save file, 4=fail to load DLL
+                    string reason = string.Empty;
+                    switch (srtn)
+                    {
+                        case 0:
+                            reason = "can't load file.";
+                            break;
+                        case 2:
+                            reason = "fail to aoto crop.";
+                            break;
+                        case 3:
+                            reason = "fail to save file.";
+                            break;
+                        case 4:
+                            reason = "fail to load DLL.";
+                            break;
+                        default:
+                            reason = "I dont know???";
+                            break;
+                    }
+                    WriteLog(LOG_LEVEL.LL_SERIOUS_ERROR, "AutoCrop fail, reason: " + reason);
+                }
+
                 return photolocation;
             }
             catch (Exception ex)
@@ -303,7 +361,13 @@ namespace Test_app
             {
                 scannerManager.DeActivate();
                 Console.WriteLine("scannerManager deActivate.");
-                WriteLog(LOG_LEVEL.LL_SUB_FUNC, "ScannerManager DeActivate, no app is connected.");
+                WriteLog(LOG_LEVEL.LL_SUB_FUNC, "ScannerManager shutting down, no app is connected.");
+                //CloseEverything();
+                Dispatcher.Invoke(() =>
+                    {
+                        Application.Current.Shutdown();
+                    }
+                );
             }
         }
 
@@ -345,7 +409,7 @@ namespace Test_app
                                 appManager.AddClientApp(clientApp);
                             }
                             scannerManager.Init();
-                            scannerManager.Activate();
+                            scannerManager.Activate();                            
 
                             // 檢查scannerManager init結果
                             connectResult = CONNECT_RESULT.Scuuess;
@@ -375,12 +439,23 @@ namespace Test_app
                     {
                         ToAppMessage appMsg = new ToAppMessage();
                         appMsg.Command = PipeCommands.GetScannerProp;
-                        Scanner scanner = scannerManager.GetCurrentScanner(message.ProductName);
-                        //scannerManager.UpdateCurrentScanner(message.ProductName);
-                        appMsg.OptionalFilePath = scanner?.FriendlyName;  // 注意current scanner可能是null
+                        Scanner scanner = scannerManager.GetCurrentScanner(message.ProductName);                        
+                        if (message.OptionalStatus)  // 如果true代表要求ID而不是name
+                            appMsg.OptionalFilePath = scanner?.ID;  // 注意current scanner可能是null
+                        else
+                            appMsg.OptionalFilePath = scanner?.FriendlyName;  // 注意current scanner可能是null
                         appMsg.Result = scannerManager.ToAppScannerResult(scanner);
                         PushMessageToApp(message.ProductName, appMsg);
                         // todo: 把短名稱轉換成長名稱
+                        break;
+                    }
+                case PipeCommands.GetSupportedScannerCount:
+                    {
+                        // 不會檢查是否是合法的產品，我只知道結果的數量會是零
+                        ResultWrapper wrapper = new ResultWrapper();
+                        wrapper.Result = ScannerResult.Success;
+                        wrapper.IntegerStatus = scannerManager.GetSupportedScannerCount(message.ProductName);
+                        PrepareAndSendToClientMessage(message.Command, wrapper, message.ProductName);
                         break;
                     }
                 case PipeCommands.Calibration:
@@ -449,10 +524,18 @@ namespace Test_app
                         appMsg.OptionalStatus = wrapper.BooleanStaus;
                         appMsg.Result = wrapper.Result;
                         PushMessageToApp(message.ProductName, appMsg);*/
-                        scannerManager.DeActivate();
-                        ResultWrapper wrapper = scannerManager.IsCalibrationNeeded(message.ProductName);
+                        ResultWrapper wrapper = new ResultWrapper();
+                        if (!scannerManager.IsBusy)
+                        {
+                            scannerManager.DeActivate();
+                            wrapper = scannerManager.IsCalibrationNeeded(message.ProductName);                            
+                            scannerManager.Activate();
+                        }
+                        else
+                        {
+                            wrapper.Result = ScannerResult.ManagerBusy;
+                        }
                         PrepareAndSendToClientMessage(message.Command, wrapper, message.ProductName);
-                        scannerManager.Activate();
                         break;
                     }
                 case PipeCommands.IsMachineConnectedbyProduct:
@@ -472,10 +555,18 @@ namespace Test_app
                         appMsg.OptionalStatus = wrapper.BooleanStaus;
                         appMsg.Result = wrapper.Result;
                         PushMessageToApp(message.ProductName, appMsg);*/
-                        scannerManager.DeActivate();
-                        ResultWrapper wrapper = scannerManager.IsPaperOn(message.ProductName);
+                        ResultWrapper wrapper = new ResultWrapper();
+                        if (!scannerManager.IsBusy)
+                        {
+                            scannerManager.DeActivate();
+                            wrapper = scannerManager.IsPaperOn(message.ProductName);                            
+                            scannerManager.Activate();
+                        }
+                        else
+                        {
+                            wrapper.Result = ScannerResult.ManagerBusy;
+                        }
                         PrepareAndSendToClientMessage(message.Command, wrapper, message.ProductName);
-                        scannerManager.Activate();
                         break;
                     }
                 // 以下的指令都沒有回傳
@@ -489,10 +580,14 @@ namespace Test_app
                             // 決定logo的顯示
                             toShowLogo = message.OptionalStatus;
                             // 將狀態視窗亮紅燈，等到ScanningComplete事件才會轉綠燈
-                            ShowScanningBaseWindow();
+                            bool isNewStyle = (message.ProductName == NEW_STYLE_PRODUCT) ? true : false;
+                            bool isLandscape = scannerManager.GetCurrentScannerIsLandscape(message.ProductName);
+                            ShowScanningBaseWindow(isNewStyle, isLandscape);
                             scanningBaseWindow?.SetBusy(true);
+                            // 取得目標App的handle，如果show flash是true，就沒有作用
+                            IntPtr haandle = appManager.GetHandleByName(message.ProductName);
                             // 掃描一次
-                            scannerManager.ScanOnce(message.ProductName, message.OptionalStatus);
+                            scannerManager.ScanOnce(message.ProductName, message.OptionalStatus, haandle);
                         }
                         else
                         {
@@ -504,34 +599,35 @@ namespace Test_app
                     }
                 case PipeCommands.SetCaller:
                     {
-                        ClientApp clientApp = new ClientApp();
-                        clientApp.ProductName = message.ProductName;
-                        clientApp.WindowHandle = new IntPtr(message.OptionalWindowHandle);                        
-                        appManager.UpdateApp(clientApp);
+                        //ClientApp clientApp = new ClientApp();
+                        //clientApp.ProductName = message.ProductName;
+                        //clientApp.WindowHandle = new IntPtr(message.OptionalWindowHandle);                        
+                        appManager.UpdateAppHandle(message.ProductName, new IntPtr(message.OptionalWindowHandle));
                         break;
                     }
                 case PipeCommands.SetSecondaryCaller:
                     {
                         if (message.OptionalWindowHandle != 0)
                         {
-                            ClientApp clientApp = new ClientApp();
-                            clientApp.ProductName = message.ProductName;
-                            clientApp.WindowHandle = new IntPtr(message.OptionalWindowHandle);
-                            appManager.UpdateApp(clientApp);
+                            //ClientApp clientApp = new ClientApp();
+                            //clientApp.ProductName = message.ProductName;
+                            //clientApp.WindowHandle = new IntPtr(message.OptionalWindowHandle);
+                            appManager.UpdateAppChildHandle(message.ProductName, new IntPtr(message.OptionalWindowHandle));
                         }
                         break;
                     }
                 case PipeCommands.SetCapture:
                     {
                         WriteLog(LOG_LEVEL.LL_SUB_FUNC, "App " + message.ProductName + " send SetCapture, do nothing.");
+                        appManager.ClearAppChildHandle(message.ProductName);
                         break;
                     }
                 case PipeCommands.SetScanDrawObject:
                     {
                         ClientApp clientApp = new ClientApp();
                         clientApp.ProductName = message.ProductName;
-                        clientApp.WindowHandle = new IntPtr(message.OptionalWindowHandle);
-                        clientApp.TargetWindowRect = Win32Message.CalculateClientRect(new IntPtr(message.OptionalWindowHandle), message.OptionalScreenRect);
+                        clientApp.ChildWindowHandle = new IntPtr(message.OptionalWindowHandle);
+                        clientApp.TargetWindowRect = message.OptionalScreenRect;/*Win32Message.CalculateClientRect(new IntPtr(message.OptionalWindowHandle), message.OptionalScreenRect);*/
                         appManager.UpdateApp(clientApp);
                         scannerManager.targetWindowRect = clientApp.TargetWindowRect; // 因為怕下一次timer迴圈沒進去就呼叫ScanOnce()，他就沒改變
                         break;
@@ -548,7 +644,9 @@ namespace Test_app
                         Console.WriteLine("toShowLogo=" + toShowLogo + ", scanSide=" + scanSide);                        
                         if (toShowLogo)
                         {
-                            ShowScanningBaseWindow();
+                            bool isNewStyle = (message.ProductName == NEW_STYLE_PRODUCT) ? true : false;
+                            bool isLandscape = scannerManager.GetCurrentScannerIsLandscape(message.ProductName);
+                            ShowScanningBaseWindow(isNewStyle, isLandscape);
                         }
                         else
                         {
@@ -572,7 +670,7 @@ namespace Test_app
         /// <summary>
         /// 根據command送回ToAppMessage，並且傳送額外的Windows massage。
         /// 掃描器或是AppManager的處理不會在這裡！
-        /// 目前處理Calibration/IsCalibrationNeed/IsPaperOn
+        /// 目前處理Calibration/IsCalibrationNeed/IsPaperOn/GetSupportedScannerCount
         /// </summary>
         private void PrepareAndSendToClientMessage(PipeCommands command, ResultWrapper wrapper, string productName)
         {
@@ -622,17 +720,26 @@ namespace Test_app
                         PushMessageToApp(productName, appMsg);
                         break;
                     }
-
+                case PipeCommands.GetSupportedScannerCount:
+                    {
+                        appMsg.OptionalInt = wrapper.IntegerStatus;
+                        appMsg.Result = wrapper.Result;
+                        PushMessageToApp(productName, appMsg);
+                        break;
+                    }
+                default:
+                    WriteLog(LOG_LEVEL.LL_SUB_FUNC, "PrepareAndSendToClientMessage() unsupported command: " + command.ToString());
+                    break;
             }
         }
 
         private void OnClientDisconnected(NamedPipeConnection<ToIScanMessage, ToAppMessage> connection)
         {
             Console.WriteLine("Client id " + connection.Id + " is disconnected.");
-            string disconnectName = connectionNameDict.FirstOrDefault(x => x.Value == connection.Name).Key;
-            DisconnectApp(disconnectName);
-            HideScanningBaseWindow();
             WriteLog(LOG_LEVEL.LL_SUB_FUNC, "Client id " + connection.Id + " is disconnected from named pipe server.");
+            string disconnectName = connectionNameDict.FirstOrDefault(x => x.Value == connection.Name).Key;
+            HideScanningBaseWindow();
+            DisconnectApp(disconnectName);
         }
 
         private void OnClientConnected(NamedPipeConnection<ToIScanMessage, ToAppMessage> connection)
@@ -649,6 +756,11 @@ namespace Test_app
         }
 
         private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
+        {
+            CloseEverything();
+        }
+
+        private void CloseEverything()
         {
             server.Stop();
             scannerManager.DeActivate();

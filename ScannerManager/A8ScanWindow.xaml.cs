@@ -23,9 +23,11 @@ namespace ScannerManager
         private string _scannerName;
         //private Bitmap resultImage;
         private BitmapImage resultBitmapImage;
+        private Bitmap resultBitmap;
         private IList<string> sourceList;
         //private DispatcherTimer timer;
-        private Action<int, BitmapImage> myImageCallback;  //用這個callback來傳回圖片給caller
+        //private Action<int, BitmapImage> myImageCallback;  //用這個callback來傳回圖片給caller
+        private Action<int, Bitmap> myImageCallback2;  //用這個callback來傳回圖片給caller
         private int count = 1;
 
         public delegate void TransferTempImageHandler(object sender, TransferImageEventArgs e);  //定義Event handler
@@ -33,7 +35,7 @@ namespace ScannerManager
         public event TransferTempImageHandler TransferCompleteImage;  //做一份實例
         public A8Result Result = A8Result.Fail;
 
-        public A8ScanWindow(Action<int, BitmapImage> imageCallback)
+        public A8ScanWindow(Action<int, Bitmap> imageCallback)
         {
             InitializeComponent();
             Loaded += ScanWindow_Loaded;
@@ -45,7 +47,8 @@ namespace ScannerManager
             Left = -100;
             Top = -100;
 
-            myImageCallback = imageCallback;
+            //myImageCallback = imageCallback;
+            myImageCallback2 = imageCallback;
         }
         
         public void OnTransferTempImage(Bitmap image, bool continueScanning, float percentage)
@@ -55,8 +58,11 @@ namespace ScannerManager
                 //TransferImageEventArgs e = new TransferImageEventArgs(image, continueScanning, percentage);
                 //TransferTempImage?.Invoke(this, e);
                 resultBitmapImage = BitmapToImageSource(image);
+                //image?.Dispose();
+                //myImageCallback(count, resultBitmapImage);
+                resultBitmap = new Bitmap(image);
                 image?.Dispose();
-                myImageCallback(count, resultBitmapImage);
+                myImageCallback2(count, resultBitmap);
                 count++;
             }
             catch (Exception ex)
@@ -168,9 +174,11 @@ namespace ScannerManager
         {
             Result = A8Result.Success_NoReturn;
             //resultBitmapImage = BitmapToImageSource(resultImage);
-            myImageCallback(-1, resultBitmapImage);
+            //myImageCallback(-1, resultBitmapImage);
+            myImageCallback2(-1, resultBitmap);
             //OnTransferComplete(resultImage);
             //IsEnabled = true;
+            GC.Collect();
             this.Close();
         }
 
@@ -199,7 +207,8 @@ namespace ScannerManager
             //_settings.Page.Orientation = TwainDotNet.TwainNative.Orientation.Auto;
             _settings.Area = new AreaSettings(Units.Inches, 0, 0, 3.7f, 2.1f);  // 設定掃描紙張的邊界
             _settings.AbortWhenNoPaperDetectable = true;  // 要偵測有沒有紙
-            _settings.Contrast = 450;
+            _settings.Contrast = 400;
+            _settings.Brightness = 90;
 
             try
             {
@@ -271,7 +280,7 @@ namespace ScannerManager
                 bitmapimage.CacheOption = BitmapCacheOption.OnLoad;
                 bitmapimage.Rotation = Rotation.Rotate270;
                 bitmapimage.EndInit();
-                bitmap.Dispose();
+                //bitmap.Dispose();
                 bitmapimage.Freeze();  // doing so, this bitmapimage will be readonly, and being thread-safe.
                 return bitmapimage;
             }
